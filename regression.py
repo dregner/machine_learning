@@ -1,32 +1,40 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class Regression:
-    def __init__(self, f, xs, alfa, theta):
+    def __init__(self, f, xs, alpha, theta):
         self.f_true = f
+        self.size_xs = len(xs)
         self.xs = np.array(xs)
         self.ys = np.array([self.f_true(x) + np.random.randn() * 0.5 for x in xs])
-        self.alfa = alfa
+        self.alpha = alpha
         self.theta = theta
         self.cost_value = []
 
-
     def h(self):
-        h = self.theta[:,np.newaxis].T @ np.vstack((np.ones(self.xs.shape[0]), self.xs))
+        # X0 = ones
+        x_components = [np.ones(self.size_xs)]
+
+        # construct x components based on theta size
+        for n in range(1, len(self.theta)):
+            x_components.append(self.xs ** n)
+
+        x = np.vstack(x_components)
+
+        # theta.T @ x
+        h = self.theta[:, np.newaxis].T @ x
         return h[0]
 
     def J(self):
-        return 1 / (2 * len(self.xs)) * np.sum((self.h() -self.ys) ** 2)
-
+        return 1 / (2 * len(self.xs)) * np.sum((self.h() - self.ys) ** 2)
 
     def gradient(self, i):
         if i == 0:
-            return self.theta[i] - self.alfa * 1 / self.xs.shape[0] * np.sum(self.h() - self.ys)
+            return self.theta[i] - self.alpha * 1 / self.xs.shape[0] * np.sum(self.h() - self.ys)
 
         else:
-           return self.theta[i] - self.alfa / self.xs.shape[0] * np.sum((self.h() - self.ys)*self.xs)
-
-
+            return self.theta[i] - self.alpha / self.xs.shape[0] * np.sum((self.h() - self.ys) * self.xs ** i)
 
     def print_modelo(self, k):
         """ plota no mesmo grafico : - o modelo / hipotese ( reta )
@@ -40,7 +48,7 @@ class Regression:
         plt.xlabel('xs')
         plt.ylabel('ys')
         plt.legend(['amostras', 'f_true(x)', 'h(x)'])
-        plt.title('Model fitting epoch {}'.format(k))
+        plt.title('Model fitting epoch {}\n learning rate: {}'.format(k, self.alpha))
         plt.show()
 
     def plot_cost_function(self):
@@ -80,39 +88,46 @@ class Regression:
 
         plt.show()
 
+
 def f_true(x):
+    """
+    Linear function
+    """
     return 2 + 0.8 * x
+
+
+def f_true_2(x):
+    """
+    Polinomial function
+    """
+    return 2 + 0.8 * x + 2 * x ** 2 - 5 * x ** 3
 
 
 def main():
     # Conjunto de dados {(x,y)}
     xs = np.linspace(-3, 3, 100)
-    theta = np.array([1,1,1])
+    theta = np.array([1, 1, 1, 1, 1])
 
     # Hyper parameters
-    alfa = 0.001
+    alpha = 10e-6
     epoch = 5000
-    regression = Regression(f=f_true, xs=xs,alfa=alfa, theta=theta)
+    n_plots = 5
+    regression = Regression(f=f_true_2, xs=xs, alpha=alpha, theta=theta)
     cost_value = []
-    regression.plot_cost_function_thetas()
+    # regression.plot_cost_function_thetas()
     for k in range(epoch):
         theta_epoch = np.zeros(theta.shape)
         regression.cost_value.append(regression.J())
         for i in range(theta.shape[0]):
             theta_epoch[i] = regression.gradient(i)
         regression.theta = theta_epoch
-        if k % 500 == 0:
+        if k % (epoch//n_plots) == 0:
             regression.print_modelo(k=k)
     regression.plot_cost_function()
-
-
-    plt.figure()
-
-
+    print('Theta values: {}'.format(regression.theta))
 
 
 
 if __name__ == '__main__':
+    print("Daniel Juchem Regner")
     main()
-
-
