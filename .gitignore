@@ -1,2 +1,7 @@
 /.venv/
 /venv/
+/.idea/
+**/*.png
+**/*.jpg
+/data_car_racing
+**/*.pkl

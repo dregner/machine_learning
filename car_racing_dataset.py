@@ -3,7 +3,7 @@ import gymnasium as gym
 import pygame
 import pickle
 from PIL import Image
-
+import os
 def register_input(a, quit):
     key = pygame.key.get_pressed()  # Get the state of all keys
     for event in pygame.event.get():
@@ -33,16 +33,25 @@ def register_input(a, quit):
             quit = True
     return a, quit
 
+
 if __name__ == "__main__":
-    env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.95, domain_randomize=False)
+    continuous = True
+    env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.95, domain_randomize=False, continuous=continuous)
+    IMG_DIR = 'data_car_racing'
+    os.makedirs(IMG_DIR, exist_ok=True)  # Create directory for images if it doesn't exist
+    NUM_LAPS = 5  # Number of laps to run
+    lap_counter = 0
+    step_counter = 0
 
     pygame.init()  # Initialize pygame for rendering
     pygame.display.set_mode((600, 400))  # Set the display size
     pygame.display.set_caption("Car Racing")  # Set the window title
 
     observation, info = env.reset()  # Reset the environment to get the initial observation
-
-    a = np.array([0.0, 0.0, 0.0])  # Initialize action array
+    if continuous:
+        a = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # Initialize action array
+    else:
+        a = 3  # Initialize action for discrete action space
     clock = pygame.time.Clock()  # Create a clock object to control the frame rate
 
     data = []
@@ -52,26 +61,40 @@ if __name__ == "__main__":
 
         a, quit = register_input(a, quit) # Read action from keyboard
 
+
         observation, reward, terminated, truncated, info = env.step(a)  # Take action
         env.render()  # Render the environment
 
         done = terminated or truncated
-        img = Image.fromarray(observation)
-        img.save('frame_{}.png'.format(step))
+        # Save image + metadata
+        img_path = os.path.join(IMG_DIR, f"lap{lap_counter:02d}_step{step_counter:04d}.png")
+        Image.fromarray(observation).save(img_path)
 
-            # Save frame data
         data.append({
-            "observation": observation,
+            "lap": lap_counter,
+            "step": step_counter,
+            "observation_path": img_path,
             "action": a.copy(),
             "reward": reward,
             "done": done
-        })            
+        })
 
-        step += 1
+        step_counter += 1
+
+        # Check if lap (episode) is done
+        if done:
+            lap_counter += 1
+            print(f"Lap {lap_counter} complete.")
+            step_counter = 0
+            if lap_counter >= NUM_LAPS:
+                running = False
+            else:
+                obs, _ = env.reset()
+ 
         clock.tick(60)  # Control the frame rate
+
+env.close()
+pygame.quit()  # Quit pygame
 
 with open('car_racing_data.pkl', 'wb') as f:
     pickle.dump(data, f)  # Save the data to a file
-
-    env.close()
-    pygame.quit()  # Quit pygame
