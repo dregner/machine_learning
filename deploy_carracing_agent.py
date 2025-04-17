@@ -49,17 +49,18 @@ class CarRacingCNNPolicy(nn.Module):
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2),
             nn.ReLU()
         )
         self.fc = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(64 * 8 * 8, 512),
+            nn.Linear(64 * 4 * 4, 512),
             nn.ReLU(),
-            nn.Linear(512, 3)
+            nn.Linear(512, 2)
         )
 
     def forward(self, x):
+
         x = x / 255.0
         return self.fc(self.conv(x))
 
@@ -73,7 +74,7 @@ model.eval()
 preprocess = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Grayscale(num_output_channels=1),
-    transforms.Resize((96, 96)),
+    transforms.Resize((84, 84)),
     transforms.ToTensor()
 ])
 
@@ -102,8 +103,20 @@ while not done:
     action1, done, automatic = register_input(action1, done, automatic)  # Get user input
     # Predict action
     with torch.no_grad():
-        action = model(stacked_obs).squeeze().cpu().numpy()
-        action = np.clip(action, [-1, 0, 0], [1, 1, 1])  # Clip actions
+        output = model(stacked_obs).squeeze().cpu().numpy()
+        steer, gas_brake = output
+        steer = np.clip(steer, -1, 1)
+        gas_brake = np.clip(gas_brake, -1, 1)
+
+        # Decode gas/brake from single value
+        if gas_brake >= 0:
+            gas = gas_brake
+            brake = 0.0
+        else:
+            gas = 0.0
+            brake = -gas_brake
+        action = np.array([steer, gas, brake])
+
 
     print(f"Predicted action: {action}")    
     action_define = action if automatic else action1  # Use automatic action if enabled
