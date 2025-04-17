@@ -36,10 +36,10 @@ def register_input(a, quit):
 
 if __name__ == "__main__":
     continuous = True
-    env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.95, domain_randomize=False, continuous=continuous)
-    IMG_DIR = 'data_car_racing'
+    env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.98, domain_randomize=False, continuous=continuous)
+    IMG_DIR = 'data_francisco'
     os.makedirs(IMG_DIR, exist_ok=True)  # Create directory for images if it doesn't exist
-    NUM_LAPS = 5  # Number of laps to run
+    NUM_LAPS = 10 # Number of laps to run
     lap_counter = 0
     step_counter = 0
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
             print(f"Lap {lap_counter} complete.")
             step_counter = 0
             if lap_counter >= NUM_LAPS:
-                running = False
+                quit = True
             else:
                 obs, _ = env.reset()
  
@@ -96,5 +96,5 @@ if __name__ == "__main__":
 env.close()
 pygame.quit()  # Quit pygame
 
-with open('car_racing_data.pkl', 'wb') as f:
+with open('car_caring_data_francisco.pkl', 'wb') as f:
     pickle.dump(data, f)  # Save the data to a file
