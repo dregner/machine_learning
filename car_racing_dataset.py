@@ -4,42 +4,52 @@ import pygame
 import pickle
 from PIL import Image
 import os
-def register_input(a, quit):
-    key = pygame.key.get_pressed()  # Get the state of all keys
+
+def register_input(a, quit, steer_delta=0.05, gas_delta=0.05, brake_delta=0.05, decay=0.9):
+    key = pygame.key.get_pressed()
+
     for event in pygame.event.get():
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                a[0] = -1.0
-            if event.key == pygame.K_RIGHT:
-                a[0] = +1.0
-            if event.key == pygame.K_UP:
-                a[1] = +1.0
-            if event.key == pygame.K_DOWN:
-                a[2] = +0.8  # set 1.0 for wheels to block to zero rotation
             if event.key == pygame.K_ESCAPE:
                 quit = True
-
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_LEFT:
-                a[0] = 0
-            if event.key == pygame.K_RIGHT:
-                a[0] = 0
-            if event.key == pygame.K_UP:
-                a[1] = 0
-            if event.key == pygame.K_DOWN:
-                a[2] = 0
-
         if event.type == pygame.QUIT:
             quit = True
+
+    # --- Steering ---
+    if key[pygame.K_LEFT]:
+        a[0] -= steer_delta
+    elif key[pygame.K_RIGHT]:
+        a[0] += steer_delta
+    else:
+        a[0] *= decay  # gradual recenter
+
+    a[0] = max(-1.0, min(a[0], 1.0))  # clamp steer
+
+    # --- Gas ---
+    if key[pygame.K_UP]:
+        a[1] += gas_delta
+    else:
+        a[1] *= decay  # gradual release
+
+    a[1] = max(0.0, min(a[1], 1.0))  # clamp gas
+
+    # --- Brake ---
+    if key[pygame.K_DOWN]:
+        a[2] += brake_delta
+    else:
+        a[2] *= decay  # gradual release
+
+    a[2] = max(0.0, min(a[2], 1.0))  # clamp brake
+
     return a, quit
 
 
 if __name__ == "__main__":
     continuous = True
     env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.98, domain_randomize=False, continuous=continuous)
-    IMG_DIR = 'data_francisco'
+    IMG_DIR = 'data_daniel'
     os.makedirs(IMG_DIR, exist_ok=True)  # Create directory for images if it doesn't exist
-    NUM_LAPS = 10 # Number of laps to run
+    NUM_LAPS = 5 # Number of laps to run
     lap_counter = 0
     step_counter = 0
 
@@ -96,5 +106,5 @@ if __name__ == "__main__":
 env.close()
 pygame.quit()  # Quit pygame
 
-with open('car_caring_data_francisco.pkl', 'wb') as f:
+with open('car_caring_data_daniel.pkl', 'wb') as f:
     pickle.dump(data, f)  # Save the data to a file

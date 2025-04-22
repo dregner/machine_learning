@@ -7,13 +7,13 @@ from torchvision import transforms
 from PIL import Image
 
 # ===== Hyperparameters =====
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 LEARNING_RATE = 0.00025
-EPOCHS = 400
+EPOCHS = 1000
 TRAIN_SPLIT = 0.8
 STACK_SIZE = 4
 IMG_SIZE = (84, 84)
-DATA_FILE = "./car_caring_data_manuela.pkl"  # Path to the dataset file
+DATA_FILE = "./car_caring_data_daniel.pkl"  # Path to the dataset file
 # DATA_FILE = "data_francisco/car_racing_data_francisco.pkl"  # Path to the dataset file
 MODEL_FILE = "car_cnn_model.pth"
 
@@ -55,6 +55,8 @@ class CarRacingFrameStackDataset(Dataset):
         frame_seq = self.samples[idx]
         stacked = []
         for frame in frame_seq:
+            # f = frame["observation_path"].split("\\")
+            # img = Image.open(f[0]+'/'+f[1]).convert("RGB")
             img = Image.open(frame["observation_path"]).convert("RGB")
             if self.transform:
                 img = self.transform(img)
@@ -107,17 +109,24 @@ test_loader = DataLoader(test_set, batch_size=BATCH_SIZE)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CarRacingCNNPolicy().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-loss_fn = nn.MSELoss()
+loss_fn = nn.SmoothL1Loss()
+best_val_loss = float("inf")  # <--- Add this before loop
 
 # ===== Training loop =====
 for epoch in range(1, EPOCHS + 1):
     model.train()
     train_loss = 0.0
+    prev_preds = None
+
     for images, actions in train_loader:
         images, actions = images.to(device), actions.to(device)
 
         preds = model(images)
         loss = loss_fn(preds, actions)
+
+        if prev_preds is not None:
+            smoothness = ((preds[1:] - preds[:-1])**2).mean()
+            loss += 0.5 * smoothness
 
         optimizer.zero_grad()
         loss.backward()
@@ -137,8 +146,16 @@ for epoch in range(1, EPOCHS + 1):
             val_loss += loss.item() * images.size(0)
     val_loss /= len(test_loader.dataset)
 
-    if epoch % 100 == 0 or epoch == 1 or epoch == EPOCHS:
+    if epoch % 50 == 0 or epoch == 1 or epoch == EPOCHS:
         print(f"Epoch {epoch:4d} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f}")
+        print("Sample pred:", preds[0].detach().cpu().numpy())
+        print("Sample true:", actions[0].detach().cpu().numpy())
+
+    # --- Save if 20% better ---
+    if val_loss < 0.8 * best_val_loss:
+        best_val_loss = val_loss
+        torch.save(model.state_dict(), f"car_cnn_model_epoch_{epoch}.pth")
+        print(f"Model saved (val_loss improved to {val_loss:.6f}, 20% better than previous best)")
 
 # ===== Save the model =====
 torch.save(model.state_dict(), MODEL_FILE)

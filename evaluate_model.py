@@ -1,7 +1,7 @@
 import pickle
 import matplotlib.pyplot as plt
 
-with open("./car_caring_data_manuela.pkl", "rb") as f:
+with open("./car_caring_data_daniel.pkl", "rb") as f:
     data = pickle.load(f)
 
 steer = [x["action"][0] for x in data]
@@ -17,3 +17,4 @@ plt.subplot(1, 3, 3)
 plt.hist(brake, bins=50, color='red'); plt.title("Brake")
 plt.tight_layout()
 plt.show()
+

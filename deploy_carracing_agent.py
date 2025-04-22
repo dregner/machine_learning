@@ -67,7 +67,7 @@ class CarRacingCNNPolicy(nn.Module):
 # ===== Load model =====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CarRacingCNNPolicy().to(device)
-model.load_state_dict(torch.load("car_cnn_model.pth", map_location=device))
+model.load_state_dict(torch.load("car_cnn_model_epoch_377.pth", map_location=device))
 model.eval()
 
 # ===== Preprocessing =====
@@ -106,11 +106,12 @@ while not done:
         output = model(stacked_obs).squeeze().cpu().numpy()
         steer, gas_brake = output
         steer = np.clip(steer, -1, 1)
-        gas_brake = np.clip(gas_brake, -1, 1)
+        gas_brake = np.clip(gas_brake, -0.9, 1)
 
         # Decode gas/brake from single value
         if gas_brake >= 0:
             gas = gas_brake
+            gas = max(gas, 0.1)
             brake = 0.0
         else:
             gas = 0.0
@@ -118,15 +119,15 @@ while not done:
         action = np.array([steer, gas, brake])
 
 
-    print(f"Predicted action: {action}")    
+    print(f"Predicted action: {output}")    
     action_define = action if automatic else action1  # Use automatic action if enabled
     # Step environment
     obs, reward, terminated, truncated, _ = env.step(action_define)
-    done = terminated or truncated
+    # done = terminated or truncated
 
     # Add new frame to stack
     gray = preprocess(obs)
     frame_stack.append(gray)
     clock.tick(60)  # Control frame rate
 env.close()
-print("🏁 Race finished.")
+print("Race finished.")
