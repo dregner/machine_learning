@@ -111,6 +111,7 @@ model = CarRacingCNNPolicy().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 loss_fn = nn.SmoothL1Loss()
 best_val_loss = float("inf")  # <--- Add this before loop
+train_score, val_score = [], []
 
 # ===== Training loop =====
 for epoch in range(1, EPOCHS + 1):
@@ -124,9 +125,8 @@ for epoch in range(1, EPOCHS + 1):
         preds = model(images)
         loss = loss_fn(preds, actions)
 
-        if prev_preds is not None:
-            smoothness = ((preds[1:] - preds[:-1])**2).mean()
-            loss += 0.5 * smoothness
+        smoothness = ((preds[1:] - preds[:-1])**2).mean()
+        loss += 0.5 * smoothness
 
         optimizer.zero_grad()
         loss.backward()
@@ -152,7 +152,7 @@ for epoch in range(1, EPOCHS + 1):
         print("Sample true:", actions[0].detach().cpu().numpy())
 
     # --- Save if 20% better ---
-    if val_loss < 0.8 * best_val_loss:
+    if val_loss < 0.7 * best_val_loss:
         best_val_loss = val_loss
         torch.save(model.state_dict(), f"car_cnn_model_epoch_{epoch}.pth")
         print(f"Model saved (val_loss improved to {val_loss:.6f}, 20% better than previous best)")
