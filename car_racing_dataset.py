@@ -5,7 +5,7 @@ import pickle
 from PIL import Image
 import os
 
-def register_input(a, quit, steer_delta=0.05, gas_delta=0.05, brake_delta=0.05, decay=0.9):
+def register_input(a, quit, steer_delta=0.2, gas_delta=0.2, brake_delta=0.1, decay=0.8):
     key = pygame.key.get_pressed()
 
     for event in pygame.event.get():
@@ -47,21 +47,20 @@ def register_input(a, quit, steer_delta=0.05, gas_delta=0.05, brake_delta=0.05, 
 if __name__ == "__main__":
     continuous = True
     env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.98, domain_randomize=False, continuous=continuous)
-    IMG_DIR = 'data_daniel'
+    env.reset()  # Set the seed for reproducibility
+    IMG_DIR = 'data_fixed_seed'  # Directory to save images
     os.makedirs(IMG_DIR, exist_ok=True)  # Create directory for images if it doesn't exist
     NUM_LAPS = 5 # Number of laps to run
     lap_counter = 0
     step_counter = 0
 
     pygame.init()  # Initialize pygame for rendering
-    pygame.display.set_mode((600, 400))  # Set the display size
+    pygame.display.set_mode((1200, 800))  # Set the display size
     pygame.display.set_caption("Car Racing")  # Set the window title
 
-    observation, info = env.reset()  # Reset the environment to get the initial observation
-    if continuous:
-        a = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # Initialize action array
-    else:
-        a = 3  # Initialize action for discrete action space
+    observation, info = env.reset(seed=123)  # Reset the environment to get the initial observation
+    a = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # Initialize action array
+
     clock = pygame.time.Clock()  # Create a clock object to control the frame rate
 
     data = []
@@ -99,12 +98,12 @@ if __name__ == "__main__":
             if lap_counter >= NUM_LAPS:
                 quit = True
             else:
-                obs, _ = env.reset()
+                obs, _ = env.reset(seed=42)
  
         clock.tick(60)  # Control the frame rate
 
 env.close()
 pygame.quit()  # Quit pygame
 
-with open('car_caring_data_daniel.pkl', 'wb') as f:
+with open('car_caring_data_fixed_seed.pkl', 'wb') as f:
     pickle.dump(data, f)  # Save the data to a file
