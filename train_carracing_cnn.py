@@ -8,14 +8,14 @@ from PIL import Image
 
 # ===== Hyperparameters =====
 BATCH_SIZE = 64
-LEARNING_RATE = 0.00025
+LEARNING_RATE = 0.0025
 EPOCHS = 1000
 TRAIN_SPLIT = 0.8
 STACK_SIZE = 4
 IMG_SIZE = (84, 84)
 DATA_FILE = "./car_caring_data_daniel.pkl"  # Path to the dataset file
 # DATA_FILE = "data_francisco/car_racing_data_francisco.pkl"  # Path to the dataset file
-MODEL_FILE = "car_cnn_model.pth"
+MODEL_FILE = "car_cnn_model_batch64.pth"
 
 # ===== Transform: Grayscale + Resize + Tensor =====
 transform = transforms.Compose([
@@ -126,7 +126,7 @@ for epoch in range(1, EPOCHS + 1):
         loss = loss_fn(preds, actions)
 
         smoothness = ((preds[1:] - preds[:-1])**2).mean()
-        loss += 0.5 * smoothness
+        # loss += 0.01 * smoothness
 
         optimizer.zero_grad()
         loss.backward()
@@ -152,11 +152,26 @@ for epoch in range(1, EPOCHS + 1):
         print("Sample true:", actions[0].detach().cpu().numpy())
 
     # --- Save if 20% better ---
-    if val_loss < 0.7 * best_val_loss:
-        best_val_loss = val_loss
-        torch.save(model.state_dict(), f"car_cnn_model_epoch_{epoch}.pth")
-        print(f"Model saved (val_loss improved to {val_loss:.6f}, 20% better than previous best)")
-
+    # if val_loss < 0.7 * best_val_loss:
+    #     best_val_loss = val_loss
+    #     torch.save(model.state_dict(), f"car_cnn_model_epoch_{epoch}.pth")
+    #     print(f"Model saved (val_loss improved to {val_loss:.6f}, 20% better than previous best)")
+    # train_score.append(train_loss)
+    # val_score.append(val_loss)
+    val_score.append(val_loss)
+    train_score.append(train_loss)
 # ===== Save the model =====
 torch.save(model.state_dict(), MODEL_FILE)
 print(f"Done. Model saved as '{MODEL_FILE}'")
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 5))
+plt.plot(train_score, label="Train Loss")
+plt.plot(val_score, label="Validation Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Training and Validation Loss")
+plt.legend()
+plt.grid(True)
+plt.savefig(MODEL_FILE.replace(".pth", "_loss_plot.png"))  # Save the figure with the same name as the model
+plt.show()  # Display the figure

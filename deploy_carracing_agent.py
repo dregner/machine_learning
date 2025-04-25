@@ -67,7 +67,7 @@ class CarRacingCNNPolicy(nn.Module):
 # ===== Load model =====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CarRacingCNNPolicy().to(device)
-model.load_state_dict(torch.load("car_cnn_model_epoch_377.pth", map_location=device))
+model.load_state_dict(torch.load("car_cnn_model_batch64_smooth_001.pth", map_location=device))
 model.eval()
 
 # ===== Preprocessing =====
@@ -122,12 +122,22 @@ while not done:
     print(f"Predicted action: {output}")    
     action_define = action if automatic else action1  # Use automatic action if enabled
     # Step environment
-    obs, reward, terminated, truncated, _ = env.step(action_define)
-    # done = terminated or truncated
-
-    # Add new frame to stack
-    gray = preprocess(obs)
-    frame_stack.append(gray)
+    obs, reward, terminated, truncated, info = env.step(action_define)
+    
+    # Check if lap is finished and reset environment
+    if terminated:
+        print("Lap finished. Resetting environment...")
+        obs, _ = env.reset()
+        frame_stack.clear()
+        for _ in range(4):
+            obs, _, _, _, _ = env.step(np.zeros(3))
+            gray = preprocess(obs)
+            frame_stack.append(gray)
+    else:
+        # Add new frame to stack
+        gray = preprocess(obs)
+        frame_stack.append(gray)
+    
     clock.tick(60)  # Control frame rate
 env.close()
 print("Race finished.")
