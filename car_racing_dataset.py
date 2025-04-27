@@ -105,5 +105,5 @@ if __name__ == "__main__":
 env.close()
 pygame.quit()  # Quit pygame
 
-with open('car_caring_data_fixed_seed.pkl', 'wb') as f:
+with open('car_caring_data_fixed_sd.pkl', 'wb') as f:
     pickle.dump(data, f)  # Save the data to a file
