@@ -5,17 +5,19 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 from PIL import Image
+import torchvision.models as models
 
 # ===== Hyperparameters =====
 BATCH_SIZE = 64
-LEARNING_RATE = 0.0025
+LEARNING_RATE = 0.00025
 EPOCHS = 1000
 TRAIN_SPLIT = 0.8
 STACK_SIZE = 4
 IMG_SIZE = (84, 84)
-DATA_FILE = "./car_caring_data_daniel.pkl"  # Path to the dataset file
+DATA_FILE = "./car_caring_data_fixed_seed.pkl"  # Path to the dataset file
 # DATA_FILE = "data_francisco/car_racing_data_francisco.pkl"  # Path to the dataset file
-MODEL_FILE = "car_cnn_model_batch64.pth"
+MODEL_FILE = "car_cnn_model_gru_batch{}_epoch{}_lr{:.6f}.pth".format(
+    BATCH_SIZE, EPOCHS, LEARNING_RATE)
 
 # ===== Transform: Grayscale + Resize + Tensor =====
 transform = transforms.Compose([
@@ -55,9 +57,9 @@ class CarRacingFrameStackDataset(Dataset):
         frame_seq = self.samples[idx]
         stacked = []
         for frame in frame_seq:
-            # f = frame["observation_path"].split("\\")
-            # img = Image.open(f[0]+'/'+f[1]).convert("RGB")
-            img = Image.open(frame["observation_path"]).convert("RGB")
+            f = frame["observation_path"].split("\\")
+            img = Image.open(f[0]+'/'+f[1]).convert("RGB")
+            #img = Image.open(frame["observation_path"]).convert("RGB")
             if self.transform:
                 img = self.transform(img)
             stacked.append(img)
@@ -95,7 +97,70 @@ class CarRacingCNNPolicy(nn.Module):
         x = x / 255.0
         x = self.conv(x)
         return self.fc(x)
+        
+# ===== ResNet Policy (Optional) =====
+class ResNetDrivingPolicy(nn.Module):
+    def __init__(self, input_channels=4):
+        super().__init__()
+        resnet = models.resnet18(weights=None)
+        resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])  # remove final fc
+        self.head = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 2)  # steer, gas_brake
+        )
 
+    def forward(self, x):
+        x = x / 255.0
+        x = self.feature_extractor(x)
+        return self.head(x)
+# ===== Nature CNN =====
+
+class NatureCNN(nn.Module):
+    def __init__(self, input_channels=4):
+        super().__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_channels, 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU()
+        )
+        self.fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(64*7*7, 512),
+            nn.ReLU(),
+            nn.Linear(512, 2)  # steer, gas_brake
+        )
+
+    def forward(self, x):
+        x = x / 255.0
+        x = self.conv(x)
+        return self.fc(x)
+
+# ===== CNN + GRU Policy =====
+class CNN_GRU(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.cnn = nn.Sequential(
+            nn.Conv2d(4, 32, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU()
+        )
+        self.rnn = nn.GRU(input_size=64*9*9, hidden_size=128, batch_first=True)
+        self.fc = nn.Linear(128, 2)
+
+    def forward(self, x):
+        x = x / 255.0
+        x = self.cnn(x)
+        x = x.view(x.size(0), 1, -1)  # (batch, seq=1, features)
+        x, _ = self.rnn(x)
+        return self.fc(x[:, -1])
+   
 # ===== Load dataset =====
 dataset = CarRacingFrameStackDataset(DATA_FILE, transform=transform, stack_size=STACK_SIZE)
 train_size = int(TRAIN_SPLIT * len(dataset))
@@ -107,7 +172,7 @@ test_loader = DataLoader(test_set, batch_size=BATCH_SIZE)
 
 # ===== Training setup =====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CarRacingCNNPolicy().to(device)
+model = CNN_GRU().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 loss_fn = nn.SmoothL1Loss()
 best_val_loss = float("inf")  # <--- Add this before loop

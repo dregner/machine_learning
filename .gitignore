@@ -5,3 +5,4 @@
 **/*.jpg
 /data_car_racing
 **/*.pkl
+**/data_*/
