@@ -5,6 +5,7 @@ import gymnasium as gym
 from torchvision import transforms
 from collections import deque
 from PIL import Image
+import torchvision.models as models
 import pygame
 def register_input(a, quit, automatic=False):
     key = pygame.key.get_pressed()  # Get the state of all keys
@@ -40,34 +41,35 @@ def register_input(a, quit, automatic=False):
             quit = True
     return a, quit, automatic
 
-# ===== CNN model (same as training) =====
+# ===== CNN Policy =====
 class CarRacingCNNPolicy(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(4, 32, kernel_size=8, stride=4),
+            nn.Conv2d(4, 32, kernel_size=8, stride=4),  # [4,84,84] → [32,20,20]
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),  # [32,20,20] → [64,9,9]
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=2),
+            nn.Conv2d(64, 64, kernel_size=3, stride=2),  # [64,9,9] → [64,4,4]
             nn.ReLU()
         )
         self.fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(64 * 4 * 4, 512),
             nn.ReLU(),
-            nn.Linear(512, 2)
+            nn.Linear(512, 2),  # Output: steer(left/right), gas/brake
         )
 
     def forward(self, x):
-
         x = x / 255.0
-        return self.fc(self.conv(x))
+        x = self.conv(x)
+        return self.fc(x)
+        
 
 # ===== Load model =====
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CarRacingCNNPolicy().to(device)
-model.load_state_dict(torch.load("car_cnn_model_batch64_smooth_001.pth", map_location=device))
+model.load_state_dict(torch.load("./car_cnn_model_batch128_epoch500_lr5e-05.pth", map_location=device))
 model.eval()
 
 # ===== Preprocessing =====
@@ -79,13 +81,13 @@ preprocess = transforms.Compose([
 ])
 
 # ===== Environment setup =====
-env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.98, domain_randomize=False, continuous=True)
+env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.9, domain_randomize=False, continuous=True)
 pygame.init()  # Initialize pygame for rendering
 pygame.display.set_mode((600, 400))  # Set the display size
 pygame.display.set_caption("Car Racing")  # Set the window title
 clock = pygame.time.Clock()  # Create a clock object to control the frame rate
 
-obs, _ = env.reset()
+obs, _ = env.reset(seed=123)
 
 frame_stack = deque(maxlen=4)
 
@@ -97,6 +99,7 @@ for _ in range(4):
 done = False
 action1 = np.array([0.0, 0.0, 0.0])  # Initialize action array
 automatic = False  # Flag for automatic mode
+ep_reward = 0
 while not done:
     # Stack frames: [4, 96, 96]
     stacked_obs = torch.cat(list(frame_stack), dim=0).unsqueeze(0).to(device)  # [1, 4, 96, 96]
@@ -106,7 +109,7 @@ while not done:
         output = model(stacked_obs).squeeze().cpu().numpy()
         steer, gas_brake = output
         steer = np.clip(steer, -1, 1)
-        gas_brake = np.clip(gas_brake, -0.9, 1)
+        gas_brake = np.clip(gas_brake, -1, 1)
 
         # Decode gas/brake from single value
         if gas_brake >= 0:
@@ -122,10 +125,11 @@ while not done:
     print(f"Predicted action: {output}")    
     action_define = action if automatic else action1  # Use automatic action if enabled
     # Step environment
-    obs, reward, terminated, truncated, info = env.step(action_define)
-    
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = done
+    ep_reward += reward
     # Check if lap is finished and reset environment
-    if terminated:
+    if terminated or truncated:
         print("Lap finished. Resetting environment...")
         obs, _ = env.reset()
         frame_stack.clear()
@@ -139,5 +143,6 @@ while not done:
         frame_stack.append(gray)
     
     clock.tick(60)  # Control frame rate
+print(f"Lap reward: {ep_reward:.2f}")
 env.close()
 print("Race finished.")

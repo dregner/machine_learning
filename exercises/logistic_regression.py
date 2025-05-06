@@ -43,8 +43,12 @@ def gradient(i, theta, xs, ys):
 
 def plot_fronteira(theta):
     # Fronteira é onde theta[0] + theta[1]*x = 0 => x = -theta[0]/theta[1]
-    fronteira = -theta[0]/theta[1]
-    plt.vlines(fronteira, 0, 1, colors='red')
+    # Fronteira is where theta[0] + theta[1]*x = 0 => x = -theta[0]/theta[1]
+    fronteira_x = -theta[0] / theta[1]
+    # Define x range for the plot
+    x_vals = np.linspace(xs.min(), xs.max(), 100)
+    y_vals = theta[0] + theta[1] * x_vals  # Linear equation for the boundary
+    plt.plot(x_vals, y_vals, color='red', label='Fronteira de decisão')
 
 def print_modelo(theta, xs, ys):
     plt.subplot(1, 2, 1)
@@ -66,8 +70,8 @@ def accuracy(ys, predictions):
     return num / len(ys)
 
 # Training setup
-alpha = 0.5
-epochs = 2000
+alpha = 5e3
+epochs = 4000
 theta = np.random.randn(2)
 
 # Tracking metrics
@@ -91,17 +95,20 @@ for k in range(epochs):
 # Final visualization
 print_modelo(theta, xs, ys)
 
-# # Plot Cost, Accuracy, Fronteira
-# fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+# Plot Cost, Accuracy, Fronteira
+fig, axs = plt.subplots(3, 1, figsize=(8, 6))
 
-# axs[0].plot(range(epochs), costs)
+axs[0].plot(range(epochs), costs)
+axs[0].set_ylabel('Custo')
 # axs[0].set_title('Custo vs Épocas')
 
-# axs[1].plot(range(epochs), accuracies)
+axs[1].plot(range(epochs), accuracies)
+axs[1].set_ylabel('Acurácia')
 # axs[1].set_title('Acurácia vs Épocas')
 
-# axs[2].plot(range(epochs), fronteiras)
+axs[2].plot(range(epochs), fronteiras)
+axs[2].set_ylabel('Fronteira')
 # axs[2].set_title('Fronteira vs Épocas')
 
-# plt.tight_layout()
-# plt.show()
+plt.tight_layout()
+plt.show()

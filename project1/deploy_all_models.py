@@ -54,7 +54,7 @@ def load_model(path, device):
 def evaluate_model(model, env, episodes=5, device='cuda'):
     scores = []
     for ep in range(episodes):
-        obs, _ = env.reset(seed=123)
+        obs, _ = env.reset()
         done = False
         ep_reward = 0.0
         # Initialize frame stack
@@ -138,13 +138,13 @@ def main(models_dir, episodes=5):
         plt.title(f'Model Performance Comparison (Epoch {epoch})')
         plt.tight_layout()
         plt.savefig(f'model_comparison_epoch_{epoch}.png')
-    with open('evaluation_results.pkl', 'wb') as f:
+    with open('evaluation_results_noseed.pkl', 'wb') as f:
         pickle.dump(results, f)
 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Evaluate multiple CarRacing models')
-    parser.add_argument('--models_dir', type=str, default='./models_2', help='Directory containing .pth model files')
+    parser.add_argument('--models_dir', type=str, default='./', help='Directory containing .pth model files')
     parser.add_argument('--episodes', type=int, default=5, help='Number of episodes per model')
     args = parser.parse_args()
     main(args.models_dir, args.episodes)
