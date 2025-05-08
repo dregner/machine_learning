@@ -15,7 +15,7 @@ ACTION_TO_DELTA = {
 
 # Hyperparameters
 alpha = 0.5       # learning rate
-gamma = 1.0       # discount factor
+gamma = 1     # discount factor
 epsilon = 0.1     # exploration rate
 episodes = 500
 
@@ -55,29 +55,31 @@ for ep in range(episodes):
     finish = False
     total_reward = 0
 
+    # Q-learning
     while finish is False:
         action = epsilon_greedy(state, Q_q)
         next_state, reward, finish = step(state, action)
 
         # Q-learning update
-        Q_q[state[0], state[1], action] += alpha * (
-            reward + gamma * Q_q[next_state[0], next_state[1], np.argmax(Q_q[next_state[0], next_state[1]])]
-            - Q_q[state[0], state[1], action]
-        )
+        Q_q[state[0], state[1], action] += alpha * (reward + gamma * 
+                                                    Q_q[next_state[0], next_state[1], np.argmax(Q_q[next_state[0], next_state[1]])]
+                                                      - Q_q[state[0], state[1], action] )
         state = next_state
         total_reward += reward
 
     episode_rewards_q.append(total_reward)
+
+
     state = START
     finish = False
     total_reward = 0
     action = epsilon_greedy(state, Q_s)
-
+    # SARSA
     while finish is False:
         next_state, reward, finish = step(state, action)
         next_action = epsilon_greedy(next_state, Q_s)
 
-        Q_s[state[0], state[1], action] += alpha * (reward + gamma * Q_s[state[0], state[1], next_action] - Q_s[state[0], state[1], action])
+        Q_s[state[0], state[1], action] += alpha * (reward + gamma * Q_s[next_state[0], next_state[1], next_action] - Q_s[state[0], state[1], action])
 
         state = next_state
         action = next_action
@@ -85,10 +87,19 @@ for ep in range(episodes):
         
     episode_rewards_s.append(total_reward)
 
+def moving_average(data, window_size=20):
+    return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
 
+def exponential_moving_average(data, alpha=0.05):
+    ema = [data[0]]
+    for r in data[1:]:
+        ema.append(alpha * r + (1 - alpha) * ema[-1])
+    return np.array(ema)
 # Plot total reward per episode
-plt.plot(episode_rewards_q, label='Q-learning')
-plt.plot(episode_rewards_s, label='SARSA')
+plt.plot(moving_average(episode_rewards_q), label='Q-learning')
+plt.plot(moving_average(episode_rewards_s), label='SARSA')
+# plt.plot(exponential_moving_average(episode_rewards_q), label='Q-learning')
+# plt.plot(exponential_moving_average(episode_rewards_s), label='SARSA')
 plt.xlabel('Episode')
 plt.ylabel('Total reward')
 plt.title('Q-Learning on Cliff Walking')
@@ -97,7 +108,7 @@ plt.grid(True)
 plt.show()
 
 # Plot the learned policy
-def plot_policy(Q):
+def plot_policy(Q, color, name):
     direction_map = {
         0: '↑',  # up
         1: '→',  # right
@@ -131,10 +142,10 @@ def plot_policy(Q):
                 continue
             best_action = np.argmax(Q[r, c])
             arrow = direction_map[best_action]
-            ax.text(c, ROWS - r - 1, arrow, ha='center', va='center', fontsize=16, color='red')
+            ax.text(c, ROWS - r - 1, arrow, ha='center', va='center', fontsize=16, color=color)
 
-    ax.set_title('Learned Policy (Q-learning)', fontsize=16)
+    ax.set_title('Learned Policy ({})'.format(name), fontsize=16)
     plt.show()
 
-plot_policy(Q_q)
-plot_policy(Q_s)
+plot_policy(Q_q, color='red', name='Q-learning')
+plot_policy(Q_s, color='blue', name='SARSA')
